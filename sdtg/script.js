@@ -178,6 +178,143 @@ function infixToPostfixSteps(tokens) {
     return { steps, output };
 }
 
+function revinfixToPostfixSteps(tokens) {
+    const steps = [];
+    const stack = [];
+    const output = [];
+    
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        
+        if (token.type === 'number') {
+            steps.push({
+                action: 'read',
+                token: token,
+                stack: [...stack],
+                output: [...output],
+                explanation: `讀取數字 ${token.value}，直接加入輸出`
+            });
+            
+            output.push(token);
+            
+            steps.push({
+                action: 'output',
+                token: token,
+                stack: [...stack],
+                output: [...output],
+                explanation: `將數字 ${token.value} 加入輸出`
+            });
+        } else if (token.value === '(') {
+            steps.push({
+                action: 'read',
+                token: token,
+                stack: [...stack],
+                output: [...output],
+                explanation: `讀取左括號 '('，放入堆疊`
+            });
+            
+            stack.push(token);
+            
+            steps.push({
+                action: 'push',
+                token: token,
+                stack: [...stack],
+                output: [...output],
+                explanation: `將左括號 '(' 放入堆疊`
+            });
+        } else if (token.value === ')') {
+            steps.push({
+                action: 'read',
+                token: token,
+                stack: [...stack],
+                output: [...output],
+                explanation: `讀取右括號 ')'，開始彈出堆疊直到找到對應的左括號`
+            });
+            
+            while (stack.length > 0 && stack[stack.length - 1].value !== '(') {
+                const popped = stack.pop();
+                output.push(popped);
+                
+                steps.push({
+                    action: 'pop',
+                    token: popped,
+                    stack: [...stack],
+                    output: [...output],
+                    explanation: `彈出運算符 '${popped.value}' 並加入輸出`
+                });
+            }
+            
+            if (stack.length > 0 && stack[stack.length - 1].value === '(') {
+                const leftParen = stack.pop();
+                
+                steps.push({
+                    action: 'pop',
+                    token: leftParen,
+                    stack: [...stack],
+                    output: [...output],
+                    explanation: `彈出左括號 '(' 並丟棄它`
+                });
+            }
+        } else if (isOperator(token.value)) {
+            steps.push({
+                action: 'read',
+                token: token,
+                stack: [...stack],
+                output: [...output],
+                explanation: `讀取運算符 '${token.value}'`
+            });
+            
+            while (
+                stack.length > 0 &&
+                stack[stack.length - 1].value !== '(' &&
+                precedence(stack[stack.length - 1].value) > precedence(token.value) //main change
+            ) {
+                const popped = stack.pop();
+                output.push(popped);
+                
+                steps.push({
+                    action: 'pop',
+                    token: popped,
+                    stack: [...stack],
+                    output: [...output],
+                    explanation: `彈出優先級更高或相同的運算符 '${popped.value}' 並加入輸出`
+                });
+            }
+            
+            stack.push(token);
+            
+            steps.push({
+                action: 'push',
+                token: token,
+                stack: [...stack],
+                output: [...output],
+                explanation: `將運算符 '${token.value}' 放入堆疊`
+            });
+        }
+    }
+    
+    while (stack.length > 0) {
+        const popped = stack.pop();
+        output.push(popped);
+        
+        steps.push({
+            action: 'pop',
+            token: popped,
+            stack: [...stack],
+            output: [...output],
+            explanation: `彈出剩餘的運算符 '${popped.value}' 並加入輸出`
+        });
+    }
+    
+    steps.push({
+        action: 'complete',
+        stack: [],
+        output: [...output],
+        explanation: `轉換完成！`
+    });
+    
+    return { steps, output };
+}
 // 轉換為 prefix 的步驟記錄
 function infixToPrefixSteps(infix) {
     // 先 tokenize
@@ -195,7 +332,7 @@ function infixToPrefixSteps(infix) {
     });
 
     // 用 postfix algorithm 套用在 reversed tokens
-    const { steps: postfixSteps, output: postfixOutput } = infixToPostfixSteps(reversedTokens);
+    const { steps: postfixSteps, output: postfixOutput } = revinfixToPostfixSteps(reversedTokens);
 
     const prefixSteps = [
         {
